@@ -76,12 +76,14 @@ service/
 | POOL_SIZE | 2 | Instancias de browser |
 | MAX_USES_PER_INSTANCE | 50 | Reciclar después de N usos |
 
-## Integración con Devourex
+## Limitations
 
-El solver service reemplaza la necesidad de que cada instancia del extractor resuelva su propio captcha. Flujo propuesto:
+- **reCAPTCHA v3 uses Chromium, not Camoufox** — Firefox patches block `grecaptcha.execute()`
+- **Cannot separate captcha solving from data extraction for JSF/PrimeFaces sites** (e.g., SEACE) — the token is tied to the browser session
+- **Cloudflare solvers** (Turnstile/WAF) use Camoufox and are untested in production
 
-```
-Devourex Extractor → POST solver:8888/solve → token
-                   → Usa token para buscar en SEACE
-                   → Extrae datos con Obscura (HTTP puro, sin browser)
-```
+## Use Cases
+
+- Sites with Cloudflare protection (Turnstile, WAF 5s challenge)
+- Centralized captcha solving for multiple scrapers (non-JSF sites)
+- Sites where reCAPTCHA token can be reused across HTTP requests
