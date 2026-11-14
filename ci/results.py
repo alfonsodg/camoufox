@@ -39,14 +39,18 @@ ERROR = "error"
 SKIP = "skip"
 
 
+def current_run_id() -> Optional[str]:
+    """The workflow run's id, or None off CI, where each gate is its own process.
+
+    The attempt is its own field: a re-run keeps the first attempt's passing
+    artifacts, and they still belong to this run.
+    """
+    return os.environ.get("HARNESS_RUN_ID") or os.environ.get("GITHUB_RUN_ID") or None
+
+
 def run_id() -> str:
     """Identity of the current run, so stale evidence cannot be reused."""
-    return (
-        os.environ.get("HARNESS_RUN_ID")
-        or os.environ.get("GITHUB_RUN_ID", "")
-        + ("-" + os.environ.get("GITHUB_RUN_ATTEMPT", "") if os.environ.get("GITHUB_RUN_ATTEMPT") else "")
-        or f"local-{socket.gethostname()}-{os.getpid()}"
-    )
+    return current_run_id() or f"local-{socket.gethostname()}-{os.getpid()}"
 
 
 def run_attempt() -> int:

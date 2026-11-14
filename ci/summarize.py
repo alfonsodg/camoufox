@@ -267,8 +267,19 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     records = results.load_all(args.results_dir)
-    merged = merge_shards(records)
     problems: List[str] = []
+
+    expected = results.current_run_id()
+    if expected:
+        # A file left by an earlier run must not satisfy a gate of this one.
+        for name, record in sorted(records.items()):
+            if record.get("run_id") != expected:
+                problems.append(
+                    f"`{name}` carries run id {record.get('run_id')!r}, not {expected!r}: "
+                    "evidence from another run does not count."
+                )
+        records = {n: r for n, r in records.items() if r.get("run_id") == expected}
+    merged = merge_shards(records)
 
     problems.extend(validate_skiplist())
 

@@ -25,12 +25,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
 from typing import Dict, List, Optional, Tuple
 
 from ._util import (
     REPO_ROOT,
+    die,
     gh_headers,
     http_json,
     log,
@@ -45,9 +47,9 @@ TAGS_API = "https://api.github.com/repos/microsoft/playwright-python/tags?per_pa
 PYPROJECT = "python/pyproject.toml"
 _CEILING = re.compile(r'^playwright\s*=\s*"<\s*([0-9][0-9.]*)"', re.M)
 
-# Consulted only when the network is unavailable or GitHub is rate-limiting an
-# unauthenticated runner. Deliberately short: it is a floor, not a source of
-# truth, and a stale entry here is better than a run that cannot start.
+# Consulted only off CI, when the network is unavailable or GitHub is rate-limiting
+# an unauthenticated machine. CI fails instead, because a table that has aged
+# picks the wrong suite without saying so.
 FALLBACK_PINS: Tuple[Tuple[str, str], ...] = (
     ("v1.62.0", "153.0"),
     ("v1.61.0", "151.0"),
@@ -77,7 +79,8 @@ def firefox_pinned_by(tag: str) -> Optional[str]:
     """The Firefox browserVersion a Playwright tag ships against."""
     try:
         data = http_json(BROWSERS_JSON.format(ref=tag))
-    except Exception:
+    except (OSError, ValueError) as exc:
+        log(f"dropping Playwright {tag}: its browsers.json could not be read ({exc})", level="WARN")
         return None
     for browser in data.get("browsers", []):
         if browser.get("name") == "firefox":
@@ -86,7 +89,7 @@ def firefox_pinned_by(tag: str) -> Optional[str]:
 
 
 def pins(limit: int = 10) -> List[Tuple[str, str]]:
-    """[(playwright tag, firefox version)], newest first, with a fallback."""
+    """[(playwright tag, firefox version)], newest first; the built-in table off CI only."""
     try:
         out = []
         for tag in released_tags()[:limit]:
@@ -95,9 +98,13 @@ def pins(limit: int = 10) -> List[Tuple[str, str]]:
                 out.append((tag, firefox))
         if out:
             return out
-        log("no Playwright pins resolved from the network", level="WARN")
-    except Exception as exc:  # noqa: BLE001
-        log(f"could not reach the Playwright tag list ({exc}); using the built-in table", level="WARN")
+        reason = "no Playwright pins resolved from the network"
+    except (OSError, ValueError) as exc:
+        reason = f"could not reach the Playwright tag list ({exc})"
+    if os.environ.get("CI"):
+        # A built-in table that has aged picks the wrong suite without saying so.
+        die(f"{reason}; CI does not fall back to the built-in table")
+    log(f"{reason}; using the built-in table", level="WARN")
     return list(FALLBACK_PINS)
 
 
