@@ -177,6 +177,8 @@ def main():
         if not os.path.exists(src):
             sys.exit(f'no such archive: {src}')
         existing = json.load(open(SPEC, encoding='utf-8')) if os.path.exists(SPEC) else {}
+        if 'repo' not in existing:
+            sys.exit(f'{SPEC} names no "repo" to host the bundle; add it before --write-spec')
         tag = args.tag or existing.get('tag') or 'font-bundle-v1'
         asset = os.path.basename(src)
         spec = {
@@ -185,8 +187,8 @@ def main():
             'size': os.path.getsize(src),
             'sha256': digest(src),
             'url': existing.get('urlTemplate', 'https://github.com/{repo}/releases/download/{tag}/{asset}')
-                   .format(repo=existing.get('repo', 'JWriter20/camoufox'), tag=tag, asset=asset),
-            'repo': existing.get('repo', 'JWriter20/camoufox'),
+                   .format(repo=existing['repo'], tag=tag, asset=asset),
+            'repo': existing['repo'],
             'urlTemplate': 'https://github.com/{repo}/releases/download/{tag}/{asset}',
             'note': 'The font bundle is a release asset, not repo content. '
                     'See scripts/fetch-fonts.py. Regenerate with --write-spec after rebuilding it.',

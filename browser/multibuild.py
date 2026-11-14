@@ -25,9 +25,8 @@ from dataclasses import dataclass
 from typing import List
 import shutil
 
-# Constants
-AVAILABLE_TARGETS = ["linux", "windows", "macos"]
-AVAILABLE_ARCHS = ["x86_64", "arm64", "i686"]
+sys.path.insert(0, str(Path(__file__).resolve().parent / 'scripts'))
+from _targets import ARCHS, SUPPORTED, TARGETS  # noqa: E402
 
 
 def setup_linux_sysroots():
@@ -118,14 +117,14 @@ def main():
     parser = argparse.ArgumentParser(description="Easy build CLI for Camoufox")
     parser.add_argument(
         "--target",
-        choices=AVAILABLE_TARGETS,
+        choices=TARGETS,
         nargs='+',
         required=True,
         help="Target platform for the build",
     )
     parser.add_argument(
         "--arch",
-        choices=AVAILABLE_ARCHS,
+        choices=ARCHS,
         nargs='+',
         required=True,
         help="Target architecture for the build",
@@ -158,11 +157,7 @@ def main():
     # Run build
     for target in args.target:
         for arch in args.arch:
-            if (target, arch) in [
-                ("windows", "arm64"),
-                ("macos", "i686"),
-                ("linux", "i686"),
-            ]:
+            if (target, arch) not in SUPPORTED:
                 print(f"Skipping {target} {arch}: Unsupported architecture.")
                 continue
             run_build(target, arch)

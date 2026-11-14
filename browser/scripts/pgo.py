@@ -19,24 +19,14 @@ import sys
 import tarfile
 import urllib.request
 
+from _targets import PROFILE_PLATFORMS, SUPPORTED, check_supported
+from _upstream import read_upstream_sh
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIN = os.path.join(HERE, 'data', 'pgo-profiles.json')
 TASKCLUSTER = 'https://firefox-ci-tc.services.mozilla.com/api'
 ARTIFACT = 'public/build/profdata.tar.xz'
 MEMBERS = ('merged.profdata', 'en-US.log')
-
-# Mozilla's profile platform for each Camoufox target, as `use-pgo` assigns
-# them in Firefox 159's taskcluster/kinds/build: Linux arm64 is built with the
-# x86_64 Linux profile.
-PROFILE_FOR = {
-    ('linux', 'x86_64'): 'linux64',
-    ('linux', 'arm64'): 'linux64',
-    ('windows', 'x86_64'): 'win64',
-    ('windows', 'i686'): 'win32',
-    ('macos', 'x86_64'): 'macosx64',
-    ('macos', 'arm64'): 'macosx64-aarch64',
-}
-
 
 def digest(path):
     h = hashlib.sha256()
@@ -62,7 +52,8 @@ def cache_dir():
 
 def fetch(target, arch, version):
     """Directory holding merged.profdata and en-US.log for this target."""
-    entry = load_pin(version)['profiles'][PROFILE_FOR[(target, arch)]]
+    check_supported(target, arch)
+    entry = load_pin(version)['profiles'][SUPPORTED[(target, arch)][1]]
     dest = os.path.join(cache_dir(), entry['sha256'])
     if all(os.path.isfile(os.path.join(dest, m)) for m in MEMBERS):
         return dest
@@ -113,7 +104,7 @@ def pin(version):
     task recorded in its chain of trust."""
     commit = release_commit(version)
     profiles = {}
-    for platform in sorted(set(PROFILE_FOR.values())):
+    for platform in PROFILE_PLATFORMS:
         index = f'gecko.v2.mozilla-release.revision.{commit}.firefox.{platform}-profile'
         task = _get_json(f'{TASKCLUSTER}/index/v1/task/{index}')['taskId']
         cot = _get_json(f'{TASKCLUSTER}/queue/v1/task/{task}/artifacts/public/chain-of-trust.json')
@@ -125,8 +116,7 @@ def pin(version):
 
 
 def upstream_version():
-    with open(os.path.join(HERE, '..', 'upstream.sh'), encoding='utf-8') as fh:
-        return next(line.split('=', 1)[1].strip() for line in fh if line.startswith('version='))
+    return read_upstream_sh()['version']
 
 
 if __name__ == '__main__':

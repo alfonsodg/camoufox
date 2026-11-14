@@ -13,12 +13,13 @@ from ci._util import BROWSER_ROOT, read_upstream_sh
 
 sys.path.insert(0, str(BROWSER_ROOT / "scripts"))
 import pgo  # noqa: E402
+from _targets import PROFILE_PLATFORMS  # noqa: E402
 
 
 def test_the_shipped_pin_covers_every_target_for_this_firefox():
     pin = json.loads((BROWSER_ROOT / "scripts" / "data" / "pgo-profiles.json").read_text())
     assert pin["firefox"] == read_upstream_sh()["version"]
-    assert set(pin["profiles"]) == set(pgo.PROFILE_FOR.values())
+    assert set(pin["profiles"]) == set(PROFILE_PLATFORMS)
 
 
 def _archive(members):
@@ -41,7 +42,7 @@ def served(tmp_path, monkeypatch):
         pin = tmp_path / "pin.json"
         entry = {"task": "T", "sha256": sha256 or hashlib.sha256(body).hexdigest()}
         pin.write_text(json.dumps({"firefox": "1.0", "commit": "c",
-                                   "profiles": {p: entry for p in pgo.PROFILE_FOR.values()}}))
+                                   "profiles": {p: entry for p in PROFILE_PLATFORMS}}))
         monkeypatch.setattr(pgo, "PIN", str(pin))
         return entry["sha256"]
 

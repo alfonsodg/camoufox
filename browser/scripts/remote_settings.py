@@ -16,10 +16,11 @@ import shutil
 import sys
 import urllib.request
 
+from _upstream import read_upstream_sh
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 PIN = os.path.join(HERE, 'data', 'remote-settings.json')
 DUMPS = os.path.join(HERE, '..', 'additions', 'services', 'settings', 'dumps', 'main')
-UPSTREAM = os.path.join(HERE, '..', 'upstream.sh')
 SERVER = 'https://firefox.settings.services.mozilla.com/v1'
 COLLECTIONS = (
     'bounce-tracking-protection-exceptions',
@@ -39,8 +40,7 @@ def fetch(url):
 
 
 def firefox_version():
-    with open(UPSTREAM, encoding='utf-8') as fh:
-        return re.search(r'^version=(\S+)', fh.read(), re.M).group(1)
+    return read_upstream_sh()['version']
 
 
 def applies_to(record, major):

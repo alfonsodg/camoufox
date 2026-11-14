@@ -25,6 +25,7 @@ from _mixin import (
     temp_cd,
 )
 import pgo
+from _targets import check_supported
 
 options, args = get_options()
 
@@ -201,19 +202,14 @@ def extract_args():
     return args[0], args[1]
 
 
-AVAILABLE_TARGETS = ["linux", "windows", "macos"]
-AVAILABLE_ARCHS = ["x86_64", "arm64", "i686"]
-
-
 def extract_build_target():
     """Get moz_target if passed to BUILD_TARGET environment variable"""
 
     if os.environ.get('BUILD_TARGET'):
         target, arch = os.environ['BUILD_TARGET'].split(',')
-        assert target in AVAILABLE_TARGETS, f"Unsupported target: {target}"
-        assert arch in AVAILABLE_ARCHS, f"Unsupported architecture: {arch}"
     else:
         target, arch = "macos", "arm64"
+    check_supported(target, arch)
     return target, arch
 
 

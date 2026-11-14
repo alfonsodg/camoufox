@@ -37,6 +37,13 @@ REMEDY = (
     f"    toAbsolute() for the conversion. See {DOC}."
 )
 
+# Juggler's modules are `.sys.mjs`; a dispatch hidden there would pass otherwise.
+SOURCE_SUFFIXES = {".js", ".mjs"}
+
+
+def sources() -> list[Path]:
+    return sorted(p for p in SCAN_ROOT.rglob("*") if p.suffix in SOURCE_SUFFIXES)
+
 
 def main() -> int:
     if not (ROOT / CHOKEPOINT).is_file():
@@ -47,9 +54,9 @@ def main() -> int:
     compiled = [(re.compile(p), what, exempt) for p, what, exempt in RULES]
     violations = []
 
-    for path in sorted(SCAN_ROOT.rglob("*.js")):
+    for path in sources():
         rel = path.relative_to(ROOT).as_posix()
-        if rel == CHOKEPOINT or path.name.endswith(".bak"):
+        if rel == CHOKEPOINT:
             continue
         for lineno, line in enumerate(path.read_text(errors="replace").splitlines(), 1):
             if line.lstrip().startswith(("//", "*", "/*")):
@@ -61,7 +68,7 @@ def main() -> int:
                     violations.append((rel, lineno, what, line.strip()))
 
     if not violations:
-        scanned = sum(1 for _ in SCAN_ROOT.rglob("*.js"))
+        scanned = len(sources())
         print(f"input-dispatch: ok -- {scanned} files scanned, all synthesized input "
               f"goes through {CHOKEPOINT}")
         return 0

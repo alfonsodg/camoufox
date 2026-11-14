@@ -23,6 +23,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 # The browser build: its Makefile, upstream.sh, and the generated Firefox tree.
 BROWSER_ROOT = REPO_ROOT / "browser"
 CI_DIR = REPO_ROOT / "ci"
+
+# The build scripts own the upstream.sh reader; the scripts are not a package,
+# so they are imported by path.
+sys.path.insert(0, str(BROWSER_ROOT / "scripts"))
+from _upstream import read_upstream_sh  # noqa: E402,F401
 SKIPLIST_PATH = CI_DIR / "skiplist.yml"
 
 # Where a run scatters its intermediate state. Overridable so a local operator
@@ -231,17 +236,3 @@ def major(v: str) -> int:
 
 # Stock Firefox's User-Agent; the groups are the rv: and Firefox/ majors.
 STOCK_UA = re.compile(r"^Mozilla/5\.0 \([^)]+; rv:(\d+)\.0\) Gecko/20100101 Firefox/(\d+)\.0$")
-
-
-def read_upstream_sh(path: Optional[Path] = None) -> Dict[str, str]:
-    """Parse upstream.sh into a dict. It is shell, but strictly key=value."""
-    path = path or (BROWSER_ROOT / "upstream.sh")
-    out: Dict[str, str] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, val = line.partition("=")
-        out[key.strip()] = val.strip().strip("'\"")
-    return out
-
