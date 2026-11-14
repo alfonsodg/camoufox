@@ -130,11 +130,12 @@ jobs:
       shard_matrix: ${{ steps.shards.outputs.matrix }}
       ubo: ${{ steps.ubo.outputs.pin }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -r ci/requirements.txt
@@ -142,6 +143,8 @@ jobs:
       - id: versions
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          BROWSER_VERSION: ${{ inputs.browser_version }}
+          PLAYWRIGHT_TAG: ${{ inputs.playwright_tag }}
         run: |
           # --check-upstream: only suite SELECTION follows browser_version.
           # The build reads upstream.sh, and the fetch path downloads the release
@@ -150,8 +153,8 @@ jobs:
           # silently. A real Firefox bump edits upstream.sh, and then
           # resolution reads it by default and the two cannot disagree.
           python3 -m ci.versions --check-upstream \
-            ${{ inputs.browser_version && format('--browser-version {0}', inputs.browser_version) || '' }} \
-            ${{ inputs.playwright_tag && format('--playwright-tag {0}', inputs.playwright_tag) || '' }}
+            ${BROWSER_VERSION:+--browser-version "$BROWSER_VERSION"} \
+            ${PLAYWRIGHT_TAG:+--playwright-tag "$PLAYWRIGHT_TAG"}
 
       - name: The uBlock Origin release to bundle
         id: ubo
@@ -241,10 +244,12 @@ jobs:
 
       - name: Build the shard matrix
         id: shards
+        env:
+          SHARDS: ${{ inputs.shards || '6' }}
         run: |
           python3 -c "
           import json, os
-          n = max(1, int('${{ inputs.shards || '6' }}'))
+          n = max(1, int(os.environ['SHARDS']))
           print('matrix=' + json.dumps([f'{i}/{n}' for i in range(1, n + 1)]))
           " >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
@@ -257,13 +262,14 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
           # Full history: config-keys-are-never-deleted checks every key
           # browser/settings/properties.json has ever declared.
           fetch-depth: 0
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       # -e python because the settled-decisions tests import camoufox.* to
@@ -315,14 +321,14 @@ jobs:
       # Every other job runs 3.12 or newer, whose grammar (PEP 701 f-strings)
       # accepts code that 3.10, the oldest Python python/pyproject.toml allows,
       # cannot import.
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         id: oldest-python
         with:
           python-version: "3.10"
       - name: pythonlib compiles on its oldest Python
         run: ${{ steps.oldest-python.outputs.python-path }} -m compileall -q python/src
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-static
@@ -339,10 +345,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: |
@@ -358,7 +365,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 -m ci.run_pythonlib
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-pythonlib
@@ -382,10 +389,11 @@ jobs:
       # python/src/camoufox/fpgen-model.json). Kept in the workspace so it can be cached.
       CAMOUFOX_FPGEN_DATA: ${{ github.workspace }}/.ci-work/fpgen
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           # Not PYTHON_VERSION: the golden fixtures are regenerated from this
           # interpreter, and pycompat.ts's pySum() reproduces sum() as 3.14
@@ -407,15 +415,15 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y --no-install-recommends xvfb
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: typescript/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: pnpm
           cache-dependency-path: typescript/pnpm-lock.yaml
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ci-work/fpgen
           key: fpgen-model-${{ hashFiles('python/src/camoufox/fpgen-model.json') }}
@@ -423,7 +431,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: .venv/bin/python -m ci.run_typescript
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-typescript
@@ -447,16 +455,17 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: typescript/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: pnpm
@@ -477,7 +486,7 @@ jobs:
         run: |
           python3 -m ci.run_install --tmpdir /mnt/install-tmp \
             --browser-tag "${{ needs.resolve.outputs.browser_tag }}" --browser "$CAMOUFOX_BINARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-install
@@ -507,7 +516,7 @@ jobs:
       BUILD_TARGET: linux,x86_64
     steps:
       # Checkout first, because the cache key below is a hash of the tree.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
@@ -522,7 +531,7 @@ jobs:
 
       - name: Is a browser with this compiled half already built?
         id: prebuilt
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: camoufox-dist.tar.zst
           # Keyed on the COMPILED inputs only, so a Juggler JavaScript change
@@ -565,7 +574,7 @@ jobs:
           sudo apt-get clean > /dev/null 2>&1 || true
           df -h /
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         if: steps.prebuilt.outputs.cache-hit != 'true'
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -583,7 +592,7 @@ jobs:
 
       - name: Restore ccache
         if: steps.prebuilt.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.ccache
           # Keyed on the browser version, the patch set and the PGO profile, so a
@@ -733,13 +742,13 @@ jobs:
           r.finish(results.PASS).save()
           "
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: camoufox-dist
           path: camoufox-dist.tar.zst
           retention-days: 3
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-build
@@ -762,10 +771,11 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: |
@@ -778,6 +788,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           CAMOUFOX_UBO: ${{ needs.resolve.outputs.ubo }}
+          BROWSER_VERSION: ${{ inputs.browser_version }}
         run: |
           set -euo pipefail
           # The release built from this tree's sources, installed the way a
@@ -800,7 +811,7 @@ jobs:
           active="$(python -m camoufox active)"
           echo "fetched: $active"
           python3 -m ci.versions --check-fetched "$active" \
-            ${{ inputs.browser_version && format('--browser-version {0}', inputs.browser_version) || '' }}
+            ${BROWSER_VERSION:+--browser-version "$BROWSER_VERSION"}
           test -x "$install_dir/camoufox-bin" || {
             echo "::error::no camoufox-bin under $install_dir after fetch"; exit 1; }
           # The published build is packaged, so properties.json and the font
@@ -819,7 +830,7 @@ jobs:
           tar -C pack -cf - bin | zstd -3 -T0 -o camoufox-dist.tar.zst
           ls -lh camoufox-dist.tar.zst
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: camoufox-dist
           path: camoufox-dist.tar.zst
@@ -846,9 +857,10 @@ jobs:
       matrix:
         shard: ${{ fromJson(needs.resolve.outputs.shard_matrix) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -861,7 +873,7 @@ jobs:
             --binary "$CAMOUFOX_BINARY" \
             --browser-version "${{ needs.resolve.outputs.browser_version }}" \
             --playwright-tag "${{ needs.resolve.outputs.playwright_tag }}"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-playwright-${{ strategy.job-index }}
@@ -872,7 +884,7 @@ jobs:
           path: .ci-work/results/
           include-hidden-files: true
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: diagnostics-playwright-${{ strategy.job-index }}
@@ -907,9 +919,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -943,7 +956,7 @@ jobs:
             --browser-version "${{ needs.resolve.outputs.browser_version }}" \
             --playwright-tag "${{ needs.resolve.outputs.playwright_tag }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-patch-guards-${{ matrix.leg }}
@@ -963,9 +976,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -982,7 +996,7 @@ jobs:
           pip install -e python
           python3 browser/scripts/verify-fonts.py --quick --bundle "$(dirname "$CAMOUFOX_BINARY")"
       - run: xvfb-run -a python3 -m ci.run_build_tester --binary "$CAMOUFOX_BINARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-build-tester
@@ -993,7 +1007,7 @@ jobs:
           path: .ci-work/results/
           include-hidden-files: true
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: diagnostics-build-tester
@@ -1012,9 +1026,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -1031,7 +1046,7 @@ jobs:
             --subset browser \
             --binary "$CAMOUFOX_BINARY" \
             --rounds 4 --browsers 3
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-native
@@ -1042,7 +1057,7 @@ jobs:
           path: .ci-work/results/
           include-hidden-files: true
           if-no-files-found: warn
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: diagnostics-native
@@ -1075,24 +1090,25 @@ jobs:
       # Remove this once the test artifact carries the langpacks.
       CAMOUFOX_TEST_ALLOW_MISSING: packaged-locales
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: |
           pip install -e python
       - uses: ./.github/actions/fpgen-model
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@fc06bc1257f339d1d5d8b3a19a8cae5388b55320 # v4.4.0
         with:
           package_json_file: typescript/package.json
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
           cache: pnpm
           cache-dependency-path: typescript/pnpm-lock.yaml
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: .ci-work/fpgen
           key: fpgen-model-${{ hashFiles('python/src/camoufox/fpgen-model.json') }}
@@ -1100,7 +1116,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: xvfb-run -a python3 -m ci.run_typescript --browser "$CAMOUFOX_BINARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-typescript-browser
@@ -1132,9 +1148,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -1142,7 +1159,7 @@ jobs:
           pip install -e python
       - uses: ./.github/actions/fpgen-model
       - run: xvfb-run -a python3 -m ci.run_native --subset growth --shard "${{ matrix.shard }}" --binary "$CAMOUFOX_BINARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           # A shard's "3/7" cannot go in an artifact name.
@@ -1161,9 +1178,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
       - uses: ./.github/actions/prepare-browser
         with:
           python-version: ${{ env.PYTHON_VERSION }}
@@ -1188,7 +1206,7 @@ jobs:
           SUNDIAL_USERNAME: ${{ secrets.SUNDIAL_USERNAME }}
           SUNDIAL_AUTOMATION_KEY: ${{ secrets.SUNDIAL_AUTOMATION_KEY }}
         run: xvfb-run -a python3 -m ci.run_sundial --binary "$CAMOUFOX_BINARY"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: results-sundial
@@ -1209,15 +1227,16 @@ jobs:
     outputs:
       verdict: ${{ steps.summarize.outputs.verdict }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: ${{ inputs.ref || github.sha }}
-      - uses: actions/setup-python@v5
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - run: pip install -r ci/requirements.txt
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: results-*
           merge-multiple: true
@@ -1262,7 +1281,7 @@ jobs:
           echo "verdict=$([ $code -eq 0 ] && echo pass || echo fail)" >> "$GITHUB_OUTPUT"
           exit $code
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
         with:
           name: test-summary
