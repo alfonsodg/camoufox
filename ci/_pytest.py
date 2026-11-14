@@ -117,6 +117,20 @@ def parse_junit(path: Path) -> Dict[str, str]:
     return outcomes
 
 
+def skip_reasons(path: Path) -> Dict[str, str]:
+    """junit XML -> {test_id: skip message} for the tests that skipped."""
+    if not path.exists():
+        return {}
+    reasons: Dict[str, str] = {}
+    for case in ET.parse(path).getroot().iter("testcase"):
+        skipped = case.find("skipped")
+        if skipped is not None:
+            reasons[junit_test_id(case.get("classname", ""), case.get("name", ""))] = (
+                skipped.get("message") or ""
+            )
+    return reasons
+
+
 def _has_plugin(python: Path, module: str) -> bool:
     return run([str(python), "-c", f"import {module}"]).ok
 

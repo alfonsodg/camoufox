@@ -32,7 +32,7 @@ from pathlib import Path
 from typing import Dict, List, Optional
 
 from . import results
-from ._pytest import parse_junit, run_pytest
+from ._pytest import parse_junit, run_pytest, skip_reasons
 from ._util import REPO_ROOT, RESULTS_DIR, WORK_DIR, run
 from .pw_camoufox_plugin import parse_shard
 
@@ -54,6 +54,15 @@ FILES = {
     # machine with one, with CAMOUFOX_GPU naming the card.
     "gpu": ["test_gpu_display.py"],
 }
+
+# A skip is allowed only when the test measured something and found nothing to
+# judge. A skip for a missing prerequisite (Xvfb) fails the gate: it would read
+# as green with the test never run. Substrings of the skip message.
+ALLOWED_SKIPS = (
+    "there is no separate driver to kill",  # test_crash_recovery.py: browser launched directly
+    "process in this build's tree",  # test_crash_recovery.py: no such child in this build
+    "growth stayed under the noise floor",  # test_memory_growth.py: nothing to fit a slope to
+)
 
 
 def collect(files: List[str], env: Dict[str, str]) -> List[str]:
@@ -161,7 +170,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         result.finish(results.ERROR).save(args.results_dir)
         return 1
 
+    reasons = skip_reasons(junit)
     for tid, outcome in outcomes.items():
+        if outcome == "skip" and not any(ok in reasons[tid] for ok in ALLOWED_SKIPS):
+            result.note(f"skipped without an allowed reason: {tid}: {reasons[tid]}")
+            outcome = "fail"
         result.record(tid, outcome)
 
     tally = result.tally()
