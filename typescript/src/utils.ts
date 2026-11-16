@@ -1111,16 +1111,28 @@ export function camouConfigBlob(fromOptions: Record<string, any>): string {
 }
 
 /**
+ * Set by launchOptions when pin_cpu_cores is on, so options passed back as
+ * fromOptions carry the caller's choice with them.
+ */
+export const PIN_CPU_CORES_ENV = "CAMOUFOX_PIN_CPU_CORES";
+
+/**
  * The core count the browser must be pinned to for these launch options, or
- * null: the identity's navigator.hardwareConcurrency when this host can honour
- * it (see cpu_affinity), so a page measuring parallelism sees the reported
- * number.
+ * null: the identity's navigator.hardwareConcurrency when pin_cpu_cores was
+ * asked for and this host can honour it (see cpu_affinity), so a page
+ * measuring parallelism sees the reported number.
  */
 export function pinnedCoreCount(
 	fromOptions: Record<string, any>,
 ): number | null {
 	const blob = camouConfigBlob(fromOptions);
-	if (!blob || !cpuAffinity.supported()) return null;
+	if (
+		!fromOptions.env?.[PIN_CPU_CORES_ENV] ||
+		!blob ||
+		!cpuAffinity.supported()
+	) {
+		return null;
+	}
 	let value: unknown;
 	try {
 		const parsed = JSON.parse(blob);
@@ -2420,6 +2432,7 @@ export async function launchOptions({
 		...utilsDeps.getEnvVars(config, targetOs, executable_path),
 		...getPrefEnvVars(firefox_user_prefs),
 		...(proxyAuth ? proxyAuthEnv(proxyAuth) : {}),
+		...(pin_cpu_cores ? { [PIN_CPU_CORES_ENV]: "1" } : {}),
 		...env,
 	};
 

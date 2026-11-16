@@ -1522,6 +1522,8 @@ describe.skipIf(!MODEL.ok)(
 );
 
 describe("cpu_affinity", () => {
+	beforeEach(() => stubHost());
+
 	it("picks adjacent cores from a random start (test_identity_salt.TestAffinityPick)", () => {
 		const cores = Array.from({ length: 16 }, (_, i) => i);
 		const seen = new Set<string>();
@@ -1551,19 +1553,42 @@ describe("cpu_affinity", () => {
 		).toEqual([0, 2, 5, 63]);
 	});
 
-	it("pins only to a count the host can honour", () => {
-		const options = (hc: number) => ({
-			env: utils.getEnvVars(
-				{ "navigator.hardwareConcurrency": hc },
-				"win",
-				BUNDLE_EXE,
-			),
+	it("pins only to a count the host can honour, and only when asked", () => {
+		const options = (hc: number, pinCpuCores: boolean) => ({
+			env: {
+				...utils.getEnvVars(
+					{ "navigator.hardwareConcurrency": hc },
+					"win",
+					BUNDLE_EXE,
+				),
+				...(pinCpuCores ? { [utils.PIN_CPU_CORES_ENV]: "1" } : {}),
+			},
 		});
 		const cores = cpuAffinity.hostCores() ?? [];
 		if (!cpuAffinity.supported() || cores.length < 3) return;
-		expect(utils.pinnedCoreCount(options(2))).toBe(2);
-		expect(utils.pinnedCoreCount(options(cores.length))).toBeNull();
+		expect(utils.pinnedCoreCount(options(2, true))).toBe(2);
+		expect(utils.pinnedCoreCount(options(cores.length, true))).toBeNull();
 		expect(utils.pinnedCoreCount({})).toBeNull();
+		// The count is below the host's, but pinning was not asked for.
+		expect(utils.pinnedCoreCount(options(2, false))).toBeNull();
+	});
+
+	it("carries pin_cpu_cores in the options launchOptions builds", async () => {
+		const cores = cpuAffinity.hostCores() ?? [];
+		if (!cpuAffinity.supported() || cores.length < 3) return;
+		const base = {
+			os: "linux",
+			headless: true,
+			i_know_what_im_doing: true,
+			executable_path: BUNDLE_EXE,
+		};
+		const off = await launch(base);
+		const on = await launch({ ...base, pin_cpu_cores: true });
+		expect(utils.pinnedCoreCount(off)).toBeNull();
+		const reported = configOf(on)["navigator.hardwareConcurrency"];
+		expect(utils.pinnedCoreCount(on)).toBe(
+			reported < cores.length ? reported : null,
+		);
 	});
 
 	it.runIf(process.platform === "linux")(
@@ -1589,11 +1614,14 @@ describe("cpu_affinity", () => {
 			if (!cpuAffinity.supported()) return;
 			const host = cpuAffinity.hostCores() ?? [];
 			if (host.length < 3) return;
-			const options = utils.getEnvVars(
-				{ "navigator.hardwareConcurrency": 2 },
-				"win",
-				BUNDLE_EXE,
-			);
+			const options = {
+				...utils.getEnvVars(
+					{ "navigator.hardwareConcurrency": 2 },
+					"win",
+					BUNDLE_EXE,
+				),
+				[utils.PIN_CPU_CORES_ENV]: "1",
+			};
 			const previous = cpuAffinity.pin(process.pid, 1);
 			try {
 				expect(cpuAffinity.hostCores()).toHaveLength(1);

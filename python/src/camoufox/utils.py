@@ -743,15 +743,20 @@ def _camou_config_blob(from_options: Dict[str, Any]) -> str:
     return ''.join(v for _, v in sorted(chunks))
 
 
+# Set by launch_options when pin_cpu_cores is on, so options passed back as
+# from_options carry the caller's choice with them.
+PIN_CPU_CORES_ENV = 'CAMOUFOX_PIN_CPU_CORES'
+
+
 def pinned_core_count(from_options: Dict[str, Any]) -> Optional[int]:
     """The core count the browser must be pinned to for these launch options,
-    or None: the identity's navigator.hardwareConcurrency when this host can
-    honour it (see cpu_affinity), so a page measuring parallelism sees the
-    reported number."""
+    or None: the identity's navigator.hardwareConcurrency when pin_cpu_cores
+    was asked for and this host can honour it (see cpu_affinity), so a page
+    measuring parallelism sees the reported number."""
     from .cpu_affinity import host_cores, supported
 
     blob = _camou_config_blob(from_options)
-    if not blob or not supported():
+    if not (from_options.get('env') or {}).get(PIN_CPU_CORES_ENV) or not blob or not supported():
         return None
     try:
         value = orjson.loads(blob).get('navigator.hardwareConcurrency')
@@ -1967,6 +1972,7 @@ def launch_options(
         **get_env_vars(config, target_os, path=executable_path),
         **get_pref_env_vars(firefox_user_prefs),
         **(proxy_auth_env(proxy_auth) if proxy_auth else {}),
+        **({PIN_CPU_CORES_ENV: '1'} if pin_cpu_cores else {}),
         **env,
     }
     result = {
