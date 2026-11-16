@@ -471,40 +471,44 @@ export class PageHandler {
     const unsubscribe = helper.addObserver((browsingContext, topic, loadIdentifier) => {
       navigationId = helper.toProtocolNavigationId(loadIdentifier);
     }, 'juggler-navigation-started-browser');
-    const navigationURI = Services.io.newURI(url);
-    // Camoufox: a top-level load starts its connection before the content
-    // process asks, as stock's own loads do (RemoteWebNavigation's
-    // _speculativeConnect). Without it the page's navigation timing showed a
-    // fresh lookup and connect after fetchStart, where a typed or clicked load
-    // in stock has them before it.
-    if (!browsingContext.parent && (navigationURI.schemeIs('http') || navigationURI.schemeIs('https'))) {
-      try {
-        const principal = Services.scriptSecurityManager.createContentPrincipal(
-            navigationURI, browsingContext.originAttributes);
-        // The callbacks give the connection the tab's load context, as stock's do.
-        const callbacks = {
-          QueryInterface: ChromeUtils.generateQI(['nsIInterfaceRequestor']),
-          getInterface(iid) {
-            if (iid.equals(Ci.nsILoadContext))
-              return browsingContext;
-            throw Components.Exception('', Cr.NS_ERROR_NO_INTERFACE);
-          },
-        };
-        Services.io.speculativeConnect(navigationURI, principal, callbacks, false);
-      } catch (e) {
-        // As in stock: a URI that cannot be pre-connected just loads.
+    // A URL newURI rejects, or a loadURI that throws, must not leave the observer registered.
+    try {
+      const navigationURI = Services.io.newURI(url);
+      // Camoufox: a top-level load starts its connection before the content
+      // process asks, as stock's own loads do (RemoteWebNavigation's
+      // _speculativeConnect). Without it the page's navigation timing showed a
+      // fresh lookup and connect after fetchStart, where a typed or clicked load
+      // in stock has them before it.
+      if (!browsingContext.parent && (navigationURI.schemeIs('http') || navigationURI.schemeIs('https'))) {
+        try {
+          const principal = Services.scriptSecurityManager.createContentPrincipal(
+              navigationURI, browsingContext.originAttributes);
+          // The callbacks give the connection the tab's load context, as stock's do.
+          const callbacks = {
+            QueryInterface: ChromeUtils.generateQI(['nsIInterfaceRequestor']),
+            getInterface(iid) {
+              if (iid.equals(Ci.nsILoadContext))
+                return browsingContext;
+              throw Components.Exception('', Cr.NS_ERROR_NO_INTERFACE);
+            },
+          };
+          Services.io.speculativeConnect(navigationURI, principal, callbacks, false);
+        } catch (e) {
+          // As in stock: a URI that cannot be pre-connected just loads.
+        }
       }
+      browsingContext.loadURI(navigationURI, {
+        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+        loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_IS_LINK,
+        referrerInfo,
+        // postData: null,
+        // headers: null,
+        // Fake user activation.
+        hasValidUserGestureActivation: true,
+      });
+    } finally {
+      unsubscribe();
     }
-    browsingContext.loadURI(navigationURI, {
-      triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-      loadFlags: Ci.nsIWebNavigation.LOAD_FLAGS_IS_LINK,
-      referrerInfo,
-      // postData: null,
-      // headers: null,
-      // Fake user activation.
-      hasValidUserGestureActivation: true,
-    });
-    unsubscribe();
     // Camoufox: a URL loaded from the address bar hands focus to the page
     // (UrlbarParentController.focusBrowser). Without it a window that opened on
     // about:blank keeps focus in its chrome, and once the load moves the tab to

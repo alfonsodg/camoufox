@@ -87,6 +87,7 @@ GROUPS: Dict[str, Tuple[str, ...]] = {
         "main-world-eval-globals",
         "main-world-init-script",
         "mouse-boundary-sweep",
+        "navigate-observer-leak",
         "near-edge-mouse-deadlock",
         "noop-mousemove-deadlock",
         "occluded-window-active",
