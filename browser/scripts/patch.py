@@ -195,7 +195,9 @@ def extract_build_target():
         assert target in AVAILABLE_TARGETS, f"Unsupported target: {target}"
         assert arch in AVAILABLE_ARCHS, f"Unsupported architecture: {arch}"
     else:
-        target, arch = "macos", "arm64"
+        # The documented build is Linux x86_64, and the make targets that run it
+        # (build, run, edit-cfg) assume that object directory.
+        target, arch = "linux", "x86_64"
     return target, arch
 
 
