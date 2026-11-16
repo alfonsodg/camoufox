@@ -7,9 +7,9 @@ for the `TabSwitchDone` event before arming that bound, so an event that never
 fired stalled the chain, and every later input command in every tab, with no
 way out. It also left its event listener on the window.
 
-The guard opens two pages in one window, so the first is a background tab, and
-makes a capturing listener on the window swallow `TabSwitchDone` (Marionette's
-chrome context). A mouse move on the background page must then return once the
+The guard opens a second tab from the first page, so the first is a background
+tab of the same window, and makes a capturing listener on the window swallow
+`TabSwitchDone` (Marionette's chrome context). A mouse move on the background page must then return once the
 slot budget expires, leave no `TabSwitchDone` listener on the window, and a
 later move must still complete quickly once the event flows again.
 
@@ -56,7 +56,12 @@ def main() -> int:
             firefox_user_prefs={"marionette.port": port}, humanize=False, i_know_what_im_doing=True) as browser:
         context = browser.new_context()
         background = context.new_page()
-        context.new_page()  # selected last, so `background` has to be switched to
+        # A page-opened window is a tab in the same window and is selected, so
+        # `background` has to be switched to; context.new_page() would open a
+        # separate window and need no tab switch.
+        with background.expect_popup() as popup_info:
+            background.evaluate("() => { window.open('about:blank'); }")
+        front = popup_info.value
         m = Marionette(port)
         try:
             baseline = m.js(WAITERS)
@@ -76,7 +81,7 @@ def main() -> int:
                 failures.append(f"{leaked} TabSwitchDone listener(s) left on the window after the slot expired")
 
             m.js(RELEASE)
-            context.pages[1].bring_to_front()
+            front.bring_to_front()
             started = time.time()
             background.mouse.move(200, 200)
             waited = time.time() - started
