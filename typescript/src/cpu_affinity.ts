@@ -6,6 +6,7 @@
 import { execFileSync } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
+import { loadWarnings, warn } from "./warnings.js";
 
 function run(command: string, args: string[]): string | null {
 	try {
@@ -112,8 +113,20 @@ export function pick(cores: readonly number[], count: number): number[] {
 }
 
 /**
+ * pin_cpu_cores was asked for and the pin did not happen: the browser keeps
+ * reporting the drawn core count while running on every core.
+ */
+function pinFailed(reason: string): void {
+	warn(
+		loadWarnings().cpu_pin_failed.replace("{reason}", reason),
+		"LeakWarning",
+	);
+}
+
+/**
  * Restrict `pid` to `count` of its cores. Returns the previous set so it can
- * be handed back to `restore()`, or null if nothing was changed.
+ * be handed back to `restore()`, or null if nothing was changed: either there
+ * was nothing to narrow, or the pin failed (reported by pinFailed).
  *
  * The caller must not pin the same process for two launches at once: the
  * browser inherits whatever mask the driver has when it is spawned.
@@ -123,15 +136,30 @@ export function pin(pid: number, count: number): number[] | null {
 	if (pid === process.pid) hostCoreCount(); // read the host before narrowing it
 	if (process.platform === "linux") {
 		const before = linuxGetAffinity(pid);
-		if (!before || count >= before.length) return null;
-		return linuxSetAffinity(pid, pick(before, count)) ? before : null;
+		if (!before) {
+			pinFailed(`the affinity of process ${pid} could not be read`);
+			return null;
+		}
+		if (count >= before.length) return null;
+		if (!linuxSetAffinity(pid, pick(before, count))) {
+			pinFailed(`the affinity of process ${pid} could not be set`);
+			return null;
+		}
+		return before;
 	}
 	if (process.platform === "win32") {
 		const beforeMask = winGetMask(pid);
-		if (!beforeMask) return null;
+		if (!beforeMask) {
+			pinFailed(`the affinity of process ${pid} could not be read`);
+			return null;
+		}
 		const before = maskToCores(beforeMask);
 		if (count >= before.length) return null;
-		return winSetMask(pid, coresToMask(pick(before, count))) ? before : null;
+		if (!winSetMask(pid, coresToMask(pick(before, count)))) {
+			pinFailed(`the affinity of process ${pid} could not be set`);
+			return null;
+		}
+		return before;
 	}
 	return null;
 }

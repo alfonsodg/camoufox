@@ -774,7 +774,10 @@ def driver_pid(playwright: Any) -> Optional[int]:
     try:
         impl = getattr(playwright, '_impl_obj', playwright)
         return int(impl._connection._transport._proc.pid)
-    except Exception:
+    except Exception as e:
+        from .cpu_affinity import pin_failed
+
+        pin_failed(f"the Playwright driver's process id is unavailable ({type(e).__name__}: {e})")
         return None
 
 

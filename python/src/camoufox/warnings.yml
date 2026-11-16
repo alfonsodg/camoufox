@@ -123,3 +123,10 @@ caller_value_incoherent: >-
 voices_unread: >-
     This browser build cannot read voices:speechd, so a Linux identity reports no voices.
     Run `camoufox set --release` for the paired build, or pass `voices` in config.
+
+cpu_pin_failed: >-
+    LEAK: pin_cpu_cores is on, but the browser was not pinned ({reason}).
+    It runs on every core the host allows while navigator.hardwareConcurrency reports the drawn count,
+    so a page timing parallel workers can measure a different number.
+    Launch where the process may set its CPU affinity (containers and restricted cgroups often forbid it),
+    or leave pin_cpu_cores off to report the host's own count.

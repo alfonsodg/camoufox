@@ -6,6 +6,8 @@ not, exactly as the options that built them said.
 """
 
 import asyncio
+import os
+import warnings
 from contextlib import contextmanager
 from unittest import mock
 
@@ -91,3 +93,46 @@ def test_async_launch_without_pinning_takes_no_lock(host15, monkeypatch):
     monkeypatch.setattr(async_api, "_launch", launched)
     result = asyncio.run(async_api._new_browser(object(), None, True, _options(), False, None, {}))
     assert result == "browser"
+
+
+# -- a failed pin is loud -------------------------------------------------
+
+
+def _pin_warnings(fn):
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        result = fn()
+    return result, [str(w.message) for w in caught if "pin" in str(w.message).lower()]
+
+
+@pytest.fixture
+def linux_affinity(monkeypatch):
+    monkeypatch.setattr(cpu_affinity.platform, "system", lambda: "Linux")
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: set(range(8)), raising=False)
+    monkeypatch.setattr(os, "sched_setaffinity", lambda pid, cores: None, raising=False)
+
+
+def test_pin_rejected_by_the_os_warns(linux_affinity, monkeypatch):
+    def denied(pid, cores):
+        raise PermissionError(1, "Operation not permitted")
+
+    monkeypatch.setattr(os, "sched_setaffinity", denied)
+    previous, messages = _pin_warnings(lambda: cpu_affinity.pin(123, 4))
+    assert previous is None
+    assert len(messages) == 1 and "Operation not permitted" in messages[0]
+
+
+def test_pin_with_nothing_to_do_is_silent(linux_affinity):
+    previous, messages = _pin_warnings(lambda: cpu_affinity.pin(123, 8))
+    assert previous is None and messages == []
+
+
+def test_pin_that_succeeds_is_silent(linux_affinity):
+    previous, messages = _pin_warnings(lambda: cpu_affinity.pin(123, 4))
+    assert previous == list(range(8)) and messages == []
+
+
+def test_unknown_driver_pid_warns():
+    result, messages = _pin_warnings(lambda: utils.driver_pid(object()))
+    assert result is None
+    assert len(messages) == 1

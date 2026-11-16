@@ -19,6 +19,14 @@ import platform
 import random
 from typing import Iterable, List, Optional, Sequence
 
+from ._warnings import WARNINGS_DATA, LeakWarning, _warn_from_caller
+
+
+def pin_failed(reason: str) -> None:
+    """pin_cpu_cores was asked for and the pin did not happen: the browser keeps
+    reporting the drawn core count while running on every core."""
+    _warn_from_caller(WARNINGS_DATA['cpu_pin_failed'].format(reason=reason), LeakWarning)
+
 
 def supported() -> bool:
     """Whether this host can constrain a process to a subset of its cores."""
@@ -55,7 +63,8 @@ def _pick(cores: Sequence[int], count: int) -> List[int]:
 
 def pin(pid: int, count: int) -> Optional[Sequence[int]]:
     """Restrict `pid` to `count` of its cores. Returns the previous set so it
-    can be handed back to `restore()`, or None if nothing was changed.
+    can be handed back to `restore()`, or None if nothing was changed: either
+    there was nothing to narrow, or the pin failed (reported by pin_failed).
 
     The caller must not pin the same process for two launches at once: the
     browser inherits whatever mask the driver has when it is spawned."""
@@ -69,16 +78,21 @@ def pin(pid: int, count: int) -> Optional[Sequence[int]]:
                 return None
             os.sched_setaffinity(pid, set(_pick(before, count)))  # type: ignore[attr-defined]
             return before
-        except OSError:
+        except OSError as e:
+            pin_failed(f'the OS refused: {e}')
             return None
     if system == 'Windows':
         before_mask = _win_get_mask(pid)
         if not before_mask:
+            pin_failed(f'the affinity of process {pid} could not be read')
             return None
         before = _mask_to_cores(before_mask)
         if count >= len(before):
             return None
-        return before if _win_set_mask(pid, _cores_to_mask(_pick(before, count))) else None
+        if not _win_set_mask(pid, _cores_to_mask(_pick(before, count))):
+            pin_failed(f'the affinity of process {pid} could not be set')
+            return None
+        return before
     return None
 
 

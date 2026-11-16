@@ -1592,6 +1592,33 @@ describe("cpu_affinity", () => {
 	});
 
 	it.runIf(process.platform === "linux")(
+		"a pin the OS refuses warns instead of keeping the drawn count silently",
+		async () => {
+			if (!cpuAffinity.supported()) return;
+			// No such process: reading or setting its affinity fails.
+			const { result, warnings: caught } = await warnings.recordWarnings(() =>
+				cpuAffinity.pin(2 ** 22 + 1, 1),
+			);
+			expect(result).toBeNull();
+			expect(caught).toHaveLength(1);
+			expect(caught[0].message).toMatch(/pin/i);
+		},
+	);
+
+	it.runIf(process.platform === "linux")(
+		"a pin with nothing to narrow is silent",
+		async () => {
+			const host = cpuAffinity.hostCores() ?? [];
+			if (!cpuAffinity.supported() || !host.length) return;
+			const { result, warnings: caught } = await warnings.recordWarnings(() =>
+				cpuAffinity.pin(process.pid, host.length),
+			);
+			expect(result).toBeNull();
+			expect(caught).toEqual([]);
+		},
+	);
+
+	it.runIf(process.platform === "linux")(
 		"pins and restores this process on Linux",
 		() => {
 			if (!cpuAffinity.supported()) return;
