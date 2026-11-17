@@ -85,24 +85,6 @@ def newest_browser_tag() -> str:
     raise SystemExit("no published browser release to pin")
 
 
-def pin(tag: str) -> None:
-    """Pin the packages to `tag`, as release.yml stamps every published package.
-
-    Unstamped, the pin is empty and `fetch` picks a release by its own rules,
-    which no published package does.
-    """
-    m = release._BROWSER_TAG.match(tag)
-    if not m:
-        raise SystemExit(f"{tag!r} is not a browser release tag")
-    release.PIN_FILE.write_text(json.dumps({
-        "tag": tag,
-        "repo": release.repo_name(),
-        "repo_name": "Official",
-        "version": m["version"],
-        "build": f"{m['prefix']}.{m['n']}",
-    }, indent=2) + "\n")
-
-
 def same_filesystem(a: Path, b: Path) -> bool:
     return a.stat().st_dev == b.stat().st_dev
 
@@ -340,7 +322,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     unstamped = release.PIN_FILE.read_text(encoding="utf-8")
     tmpdir = Path(tempfile.mkdtemp(dir=args.tmpdir))
     try:
-        pin(tag)
+        release.write_browser_pin(tag)
         browser = args.browser.resolve()
         ok = python_package(result, args.work / "pythonlib", tmpdir, tag, browser, args.timeout)
         ok = npm_package(result, args.work / "typescript", tmpdir, tag, browser, args.timeout) and ok
