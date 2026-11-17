@@ -253,6 +253,32 @@ def main(argv: Optional[List[str]] = None) -> int:
         violations.append(f"categories that must be clean have failing checks: {pretty}")
         status = evidence.FAIL
 
+    # Counted from the profiles themselves: flatten() keys a slot by os, mode and
+    # index, and runner.py records no index, so its slots merge profiles.
+    profiles = full.get("profiles") or []
+    errored = [(p.get("profile") or {}).get("name", "?") for p in profiles if p.get("error")]
+    launched = len(profiles) - len(errored)
+    expected = int(cfg.get("profile_count", 8))
+    if errored or launched < expected:
+        reason = (
+            f"{launched} of {expected} profiles produced results"
+            + (f"; failed to launch: {', '.join(errored)}" if errored else "")
+        )
+        result.note(reason)
+        violations.append(reason)
+        status = evidence.FAIL
+    # runner.py exits 1 exactly when its raw totals differ, which includes
+    # checks this gate does not grade; any other exit code is unexplained.
+    explained = 0 if full.get("totalPassed") == full.get("totalChecks") else 1
+    if proc.code != explained:
+        reason = (
+            f"build-tester exited {proc.code}, but its totals "
+            f"({full.get('totalPassed')}/{full.get('totalChecks')}) account for {explained}"
+        )
+        result.note(reason)
+        violations.append(reason)
+        status = evidence.FAIL
+
     slots = uniqueness(full)
     allowed = int(cfg.get("allow_uniqueness_collisions", 0))
     result.metrics["uniqueness"] = slots
