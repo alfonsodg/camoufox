@@ -53,23 +53,27 @@ const disallowedMessageCategories = new Set([
   'xbl javascript',
 ]);
 
-// Camoufox: does this Runtime.callFunction carry a `mw:`-prefixed script?
-//
-// The typeof guard matters: Runtime.js is also eval'd into worker globals,
-// where ChromeUtils does not exist, and worker evaluation must not trip over
-// the main-world path at all.
+// Camoufox: the prefix that routes a script to the main world. FrameTree.js
+// defines the same one; this file is eval'd into worker globals and cannot import it.
+const MAIN_WORLD_PREFIX = 'mw:';
+
 // Camoufox: report a bad `mw:` request the way an in-page exception is
 // reported, so the message survives Playwright's error rewriting.
 function mainWorldFailure(text) {
   return {exceptionDetails: {text}};
 }
 
+// Camoufox: does this Runtime.callFunction carry a `mw:`-prefixed script?
+//
+// The typeof guard matters: Runtime.js is also eval'd into worker globals,
+// where ChromeUtils does not exist, and worker evaluation must not trip over
+// the main-world path at all.
 function isMainWorldRequest(functionDeclaration, args) {
   return typeof ChromeUtils !== 'undefined' &&
       functionDeclaration.includes('utilityScript.evaluate') &&
       args.length > 4 &&
       typeof args[3].value === 'string' &&
-      args[3].value.startsWith('mw:');
+      args[3].value.startsWith(MAIN_WORLD_PREFIX);
 }
 
 // Camoufox: the main-world half of the `mw:` escape hatch -- a standalone
@@ -404,7 +408,7 @@ class Runtime {
       const mainWorldArgs = args.slice(1);
       if (mainWorldArgs.some(arg => arg.objectId))
         return mainWorldFailure('Main world evaluation cannot accept element or JS handles as arguments.');
-      mainWorldArgs[2] = {value: args[3].value.substring(3)};
+      mainWorldArgs[2] = {value: args[3].value.substring(MAIN_WORLD_PREFIX.length)};
       const exceptionDetails = {};
       const result = await mainWorldContext.evaluateFunction(MAIN_WORLD_EVALUATE, mainWorldArgs, exceptionDetails);
       if (!result)

@@ -30,6 +30,11 @@ const kSlotExpired = Symbol('activation-slot-expired');
 
 const Cr = Components.results;
 
+function checkScreencastSize(width, height) {
+  if (width < 10 || width > 10000 || height < 10 || height > 10000)
+    throw new Error("Invalid size");
+}
+
 const helper = new Helper();
 
 const IDENTITY_NAME = 'JUGGLER ';
@@ -1047,8 +1052,7 @@ export class PageTarget {
     // to be initialized and visible.
     await this.windowReady();
     const file = PathUtils.join(dir, helper.generateId() + '.webm');
-    if (width < 10 || width > 10000 || height < 10 || height > 10000)
-      throw new Error("Invalid size");
+    checkScreencastSize(width, height);
 
     // Firefox 152 renamed `ownerGlobal` to `documentGlobal` on nodes.
     const docShell = (this._gBrowser.documentGlobal || this._gBrowser.ownerGlobal).docShell;
@@ -1088,8 +1092,7 @@ export class PageTarget {
     // NSWindow.windowNumber may be -1, so we wait until the window is known
     // to be initialized and visible.
     await this.windowReady();
-    if (width < 10 || width > 10000 || height < 10 || height > 10000)
-      throw new Error("Invalid size");
+    checkScreencastSize(width, height);
 
     // nsScreencastService only has a working capture source when the browser is
     // headless (HeadlessWindowCapturer). Outside headless it falls through to

@@ -4,6 +4,11 @@
 
 "use strict";
 
+// Box-Muller; 1 - random() keeps the logarithm's argument above 0.
+function standardNormal(random) {
+  return Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
+}
+
 /**
  * A person's delay in ms: a normal draw around `mean` with standard deviation
  * `sd`, never under `min` nor over `max`. Every delay Juggler waits out
@@ -13,8 +18,7 @@
  * `random` returns floats in [0, 1); the unit tests pass a seeded stream.
  */
 export function normalDelay(mean, sd, min = 0, max = Infinity, random = Math.random) {
-  // Box-Muller; 1 - random() keeps the logarithm's argument above 0.
-  const n = Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
+  const n = standardNormal(random);
   return Math.min(max, Math.max(min, mean + sd * n));
 }
 
@@ -25,6 +29,6 @@ export function normalDelay(mean, sd, min = 0, max = Infinity, random = Math.ran
  * normalDelay.
  */
 export function logNormalDelay(medianMs, sigma, min = 0, max = Infinity, random = Math.random) {
-  const n = Math.sqrt(-2 * Math.log(1 - random())) * Math.cos(2 * Math.PI * random());
+  const n = standardNormal(random);
   return Math.min(max, Math.max(min, medianMs * Math.exp(sigma * n)));
 }
