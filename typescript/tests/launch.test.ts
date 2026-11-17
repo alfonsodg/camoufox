@@ -473,6 +473,22 @@ describe("test_launch_environment: prefs", () => {
 				(await win(2.5, { firefox_user_prefs: { [PREF]: "1.0" } }))[PREF],
 			).toBe("1.0");
 		});
+		// Python formats both with :g (six significant digits); parity with
+		// python/tests/test_display_scale.py.
+		it("writes a non-step scale as Python does", async () => {
+			expect((await win(1.0909090909))[PREF]).toBe("1.09091");
+		});
+		it("names the scale in the monitor error as Python does", async () => {
+			deps.osName = () => "lin";
+			await expect(
+				win(1.0909090909, {
+					headless: false,
+					screen: new fingerprints.Screen({ maxWidth: 1000, maxHeight: 1080 }),
+				}),
+			).rejects.toThrow(
+				"window.outerWidth 1280 at display scale 1.09091 needs 1396.36 pixels, but this monitor has 1000",
+			);
+		});
 		it("refuses a window too large for the monitor", async () => {
 			deps.osName = () => "lin";
 			await expect(

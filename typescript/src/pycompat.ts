@@ -108,6 +108,20 @@ export function formatPyFloatRepr(x: number): string {
 	return `${sign}${sciMantissa(digits)}e${exp < 0 ? "-" : "+"}${e}`;
 }
 
+/** f"{x:g}" in CPython: six significant digits, no trailing zeros. */
+export function formatPyG(x: number): string {
+	if (Number.isNaN(x)) return "nan";
+	if (!Number.isFinite(x)) return x > 0 ? "inf" : "-inf";
+	const trim = (digits: string) =>
+		digits.includes(".") ? digits.replace(/\.?0+$/, "") : digits;
+	const [mantissa, exp] = x.toExponential(5).split("e");
+	if (Number(exp) < -4 || Number(exp) >= 6) {
+		const e = Math.abs(Number(exp)).toString().padStart(2, "0");
+		return `${trim(mantissa)}e${Number(exp) < 0 ? "-" : "+"}${e}`;
+	}
+	return trim(x.toFixed(5 - Number(exp)));
+}
+
 /** Compare two strings by code point, as Python (and UTF-8 bytes) order them. */
 export function comparePyStr(a: string, b: string): number {
 	if (a === b) return 0;

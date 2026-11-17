@@ -1288,8 +1288,6 @@ def get_random_preset(
     if not presets:
         return None
 
-    all_os_keys = ['macos', 'windows', 'linux']
-
     if os:
         # Presets are keyed by Camoufox OS name
         if isinstance(os, (list, tuple)):
@@ -1297,7 +1295,7 @@ def get_random_preset(
         else:
             os_keys = [OS_NAMES.get(os, os)]
     else:
-        os_keys = all_os_keys
+        os_keys = list(OS_KEYS)
 
     # Collect all matching presets
     candidates: List[Dict] = []

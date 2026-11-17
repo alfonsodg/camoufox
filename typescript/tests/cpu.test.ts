@@ -116,6 +116,12 @@ describe("the caller's option", () => {
 				"windows",
 				"linux",
 			]);
+			// In the order of fingerprints.OS_KEYS in the Python launcher.
+			expect(await osForCpu({ arch: "x86" }, null)).toEqual([
+				"macos",
+				"windows",
+				"linux",
+			]);
 			expect(await osForCpu({ arch: "x86" }, ["macos", "linux"])).toEqual([
 				"macos",
 				"linux",

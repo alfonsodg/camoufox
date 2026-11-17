@@ -551,9 +551,6 @@ def vpx_realtime_only(config: Dict[str, Any], target_os: str) -> bool:
     return config.get('cpu:arch') == 'arm' and target_os in ('win', 'lin')
 
 
-_CPU_OS_NAMES = {'windows': 'win', 'macos': 'mac', 'linux': 'lin'}
-
-
 def _os_for_cpu(cpu: Any, os: Optional[ListOrString]) -> ListOrString:
     """The OSes a machine with this CPU can run, among those asked for.
 
@@ -562,18 +559,18 @@ def _os_for_cpu(cpu: Any, os: Optional[ListOrString]) -> ListOrString:
     drawn: an ARM identity is a Mac, or Linux rendering with llvmpipe, until
     Windows-on-ARM or Linux-on-ARM GPUs are recorded.
     """
-    asked = [os] if isinstance(os, str) else list(os or _CPU_OS_NAMES)
+    asked = [os] if isinstance(os, str) else list(os or OS_KEYS)
     check_valid_os(asked)
     errors, fits = [], []
     for name in asked:
         try:
-            resolved = coherence.resolve_cpu(cpu, _CPU_OS_NAMES[name])
+            resolved = coherence.resolve_cpu(cpu, OS_KEYS[name])
         except ValueError as exc:
             errors.append(str(exc))
             continue
         if os is None and not any(
-            coherence.gpu_fits_cpu(r, _CPU_OS_NAMES[name], resolved.get('cpu:arch'), resolved.get('cpu:manufacturer'))
-            for _, r in firefox_gpus(_CPU_OS_NAMES[name])
+            coherence.gpu_fits_cpu(r, OS_KEYS[name], resolved.get('cpu:arch'), resolved.get('cpu:manufacturer'))
+            for _, r in firefox_gpus(OS_KEYS[name])
         ):
             errors.append(f'fpgen has recorded no {name} GPU beside that CPU')
             continue
@@ -595,7 +592,7 @@ def check_valid_os(os: ListOrString) -> None:
     if not os.islower():
         raise InvalidOS(f"OS values must be lowercase: '{os}'")
     # Assert that the OS is supported by Camoufox
-    if os not in ('windows', 'macos', 'linux'):
+    if os not in OS_KEYS:
         raise InvalidOS(f"Camoufox does not support the OS: '{os}'")
 
 

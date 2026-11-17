@@ -83,6 +83,7 @@ import {
 import {
 	comparePyStr,
 	formatPyFloatRepr,
+	formatPyG,
 	isPlainObject,
 	isPyError,
 	orjsonDumps,
@@ -868,9 +869,11 @@ export function vpxRealtimeOnly(
 	);
 }
 
+// In the order of OS_KEYS in python/src/camoufox/fingerprints.py, which an
+// unrestricted draw follows.
 const CPU_OS_NAMES: Record<string, string> = {
-	windows: "win",
 	macos: "mac",
+	windows: "win",
 	linux: "lin",
 };
 
@@ -2371,7 +2374,7 @@ export async function launchOptions({
 	// on a HiDPI host the host's own scale would otherwise reach (resolution).
 	const dpr = Number(config["window.devicePixelRatio"]);
 	if (dpr && !("layout.css.devPixelsPerPx" in firefox_user_prefs)) {
-		firefox_user_prefs["layout.css.devPixelsPerPx"] = String(dpr);
+		firefox_user_prefs["layout.css.devPixelsPerPx"] = formatPyG(dpr);
 	}
 	if (headless === false && !virtual_display && screenCons) {
 		const fit = physicalScale(config, firefox_user_prefs);
@@ -2382,7 +2385,7 @@ export async function launchOptions({
 			const size = config[`window.outer${axis}`];
 			if (cap && size && size * fit > cap) {
 				throw new Error(
-					`window.outer${axis} ${size} at display scale ${fit} needs ${size * fit} pixels, ` +
+					`window.outer${axis} ${size} at display scale ${formatPyG(fit)} needs ${formatPyG(size * fit)} pixels, ` +
 						`but this monitor has ${cap}. Pass a smaller screen and window, or run headless.`,
 				);
 			}

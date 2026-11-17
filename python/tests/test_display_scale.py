@@ -31,3 +31,17 @@ def test_window_too_large_for_the_monitor_raises(monkeypatch, isolated_launch_de
     with pytest.raises(ValueError, match="needs 3200 pixels, but this monitor has 1920"):
         prefs(2.5, headless=False, screen=Screen(max_width=1920, max_height=1080))
     assert prefs(1.25, headless=False, screen=Screen(max_width=1920, max_height=1200))[PREF] == "1.25"
+
+
+def test_a_non_step_scale_is_written_with_six_significant_digits(isolated_launch_dependencies):  # noqa: F811
+    # typescript/tests/launch.test.ts asserts the same strings.
+    assert prefs(1.0909090909)[PREF] == "1.09091"
+
+
+def test_the_monitor_error_names_the_scale_with_six_significant_digits(monkeypatch, isolated_launch_dependencies):  # noqa: F811
+    monkeypatch.setattr(utils, "OS_NAME", "lin")
+    with pytest.raises(
+        ValueError,
+        match="window.outerWidth 1280 at display scale 1.09091 needs 1396.36 pixels, but this monitor has 1000",
+    ):
+        prefs(1.0909090909, headless=False, screen=Screen(max_width=1000, max_height=1080))

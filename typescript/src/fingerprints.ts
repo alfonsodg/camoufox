@@ -523,7 +523,8 @@ function loadVoiceUris(): Record<string, Record<string, string>> {
 		try {
 			voiceUrisCache =
 				loadDataFile<Record<string, Record<string, string>>>("voice-uris.json");
-		} catch {
+		} catch (error) {
+			if (!isPyError(error, "OSError")) throw error;
 			voiceUrisCache = {};
 		}
 	}

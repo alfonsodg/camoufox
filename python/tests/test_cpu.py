@@ -74,6 +74,8 @@ def test_an_os_left_open_is_drawn_among_those_with_a_gpu_for_the_cpu():
     # ARM identity is a Mac or a Linux machine rendering in software.
     assert _os_for_cpu({"arch": "arm"}, None) == ["macos", "linux"]
     assert _os_for_cpu({"manufacturer": "amd"}, None) == ["windows", "linux"]
+    # In the order of fingerprints.OS_KEYS, the one table of OS names.
+    assert _os_for_cpu({"arch": "x86"}, None) == ["macos", "windows", "linux"]
     assert _os_for_cpu({"arch": "x86"}, ["macos", "linux"]) == ["macos", "linux"]
     with pytest.raises(ValueError):
         _os_for_cpu({"manufacturer": "amd"}, "macos")

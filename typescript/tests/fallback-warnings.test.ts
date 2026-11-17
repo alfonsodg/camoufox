@@ -124,6 +124,18 @@ it.each([
 	expect(fonts.length).toBeGreaterThan(0);
 });
 
+describe("voice-uris.json, as Python's _load_voice_uris reads it", () => {
+	it("a missing file reads as empty, and the URI is derived", async () => {
+		const { fp } = await withData(missing("voice-uris.json"));
+		expect(fp.voiceUri("mac", "Alex", "en-US")).toMatch(/^urn:moz-tts:osx:/);
+	});
+
+	it("a corrupt file is an error, not an empty table", async () => {
+		const { fp } = await withData(corrupt("voice-uris.json"));
+		expect(() => fp.voiceUri("mac", "Alex", "en-US")).toThrow(SyntaxError);
+	});
+});
+
 it("an error the data cannot raise is not swallowed", async () => {
 	const { fp } = await withData((dir) =>
 		fs.writeFileSync(path.join(dir, "fonts.json"), "null"),
