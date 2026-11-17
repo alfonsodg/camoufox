@@ -1055,7 +1055,7 @@ def _upload_blocks():
     """(name, path-lines, block-text) for every upload-artifact step."""
     text = WORKFLOW.read_text(encoding="utf-8")
     blocks = []
-    for match in re.finditer(r"- uses: actions/upload-artifact@v4\n", text):
+    for match in re.finditer(r"- uses: actions/upload-artifact@\S+[^\n]*\n", text):
         block = text[match.start() : match.start() + 900]
         # Stop at the next step at the same indentation.
         end = re.search(r"\n( *)- (uses|name):", block[40:])
@@ -2616,7 +2616,7 @@ def test_the_overlay_runs_only_on_a_hit_and_before_the_upload():
     steps = _build_job()["steps"]
     names = [s.get("name") or s.get("uses") or "run" for s in steps]
     overlay = next(i for i, n in enumerate(names) if "resources over the restored" in n)
-    upload = next(i for i, n in enumerate(names) if n == "actions/upload-artifact@v4")
+    upload = next(i for i, n in enumerate(names) if n.startswith("actions/upload-artifact@"))
     assert steps[overlay]["if"].strip() == "steps.prebuilt.outputs.cache-hit == 'true'"
     assert overlay < upload, "the artifact would be uploaded before the resources were laid over it"
 
